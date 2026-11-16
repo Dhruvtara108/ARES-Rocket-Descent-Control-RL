@@ -1,0 +1,30 @@
+cat > .gitignore <<'EOF'
+# Python environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training outputs
+checkpoints/
+runs/
+logs/
+*.pt
+*.pth
+*.zip
+
+# Datasets and generated media
+datasets/
+data/
+*.mp4
+*.gif
+
+# IDE
+.vscode/
+EOF
