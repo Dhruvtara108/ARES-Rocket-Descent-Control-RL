@@ -84,6 +84,23 @@ different model, episode count, or seed with `--model-path`, `--episodes`, or
 `--seed`. The model is generated locally by training and is not committed to Git;
 run Phase 2.1 training first if the default model file is missing.
 
+## Detailed evaluation (Phase 3.1)
+
+Evaluate the trained policy over 100 seeded episodes and write per-episode
+rewards, termination flags, and final landing observations to CSV:
+
+```bash
+python -m scripts.evaluate_ppo
+```
+
+The default seeds are 100–199 and the CSV is written to
+`checkpoints/ppo/evaluation/evaluation_results.csv`. Use `--episodes`, `--seed`,
+`--model-path`, `--csv-path`, or `--stochastic` to customize the run. Reward of
+200 or more is counted separately as a score threshold; termination alone does
+not indicate a successful landing. Final position, velocity, angle, and leg
+contact values are taken from LunarLander's final eight-value observation; its
+position and velocity values retain Gymnasium's observation scaling.
+
 ## Verify the simulation
 
 ```bash
@@ -113,5 +130,6 @@ Rendering requires a graphical display. Generated outputs are not written to the
 
 Phase 1 environment checks, lightweight tests, and random-agent evaluation are
 implemented. Phase 2.1 provides PPO configuration and the training pipeline,
-and Phase 2.3 provides model loading and demonstration. Training evaluation and
-optimization remain future work.
+and Phase 2.3 provides model loading and demonstration. Phase 3.1 adds detailed
+evaluation metrics; further training evaluation and optimization remain future
+work.
