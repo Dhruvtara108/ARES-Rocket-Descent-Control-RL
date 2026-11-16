@@ -9,10 +9,14 @@ Use Python 3.12 and a CPU-only PyTorch installation. From the repository root:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
+python -m pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -r requirements.txt
 ```
 
-The pinned dependencies are PyTorch, NumPy, Gymnasium, Stable-Baselines3, and Box2D. `LunarLander-v3` uses Gymnasium's Box2D environment.
+PyTorch is installed separately from the CPU-only wheel index. It is intentionally
+omitted from `requirements.txt` so a later requirements install cannot replace it
+with a non-CPU build. The remaining pinned dependencies are NumPy, Gymnasium,
+Stable-Baselines3, and Box2D. `LunarLander-v3` uses Gymnasium's Box2D environment.
 
 ## Verify the simulation
 
