@@ -1,6 +1,6 @@
 # ARES Rocket Descent Control RL
 
-Phase 1 establishes a reproducible LunarLander simulation and random-agent baseline. No learned policy or PPO training is included yet.
+This project trains an autonomous LunarLander agent with Proximal Policy Optimization (PPO) from Stable-Baselines3. Phase 1 provides the simulation checks and random-agent baseline; Phase 2.1 adds the PPO configuration and training pipeline.
 
 ## Environment setup
 
@@ -17,6 +17,49 @@ PyTorch is installed separately from the CPU-only wheel index. It is intentional
 omitted from `requirements.txt` so a later requirements install cannot replace it
 with a non-CPU build. The remaining pinned dependencies are NumPy, Gymnasium,
 Stable-Baselines3, and Box2D. `LunarLander-v3` uses Gymnasium's Box2D environment.
+
+## PPO training (Phase 2.1)
+
+PPO learns a policy by collecting short batches of environment experience and
+updating the policy while limiting each update to avoid large, unstable changes.
+It is used here as a well-supported on-policy baseline for the discrete actions
+and continuous observations in LunarLander.
+
+The policy is `MlpPolicy` with separate policy and value networks, each using two
+hidden layers of 64 units. Training runs on CPU. The centralized defaults in
+`scripts/ppo_config.py` are:
+
+| Setting | Value |
+| --- | ---: |
+| Environment / algorithm | `LunarLander-v3` / PPO |
+| Learning rate | 0.0003 |
+| Rollout steps | 2048 |
+| Minibatch size | 64 |
+| Gamma / GAE lambda | 0.99 / 0.95 |
+| Clip range | 0.2 |
+| Entropy / value coefficients | 0.0 / 0.5 |
+| Maximum gradient norm | 0.5 |
+| Hidden layers | 64, 64 |
+| Default total timesteps / seed | 500,000 / 42 |
+| Checkpoint frequency | 100,000 timesteps |
+
+Start training from the repository root with the existing virtual environment:
+
+```bash
+source .venv/bin/activate
+python -m scripts.train_ppo
+```
+
+The run length, seed, checkpoint interval, main PPO settings, and output directory
+can be overridden. For example:
+
+```bash
+python -m scripts.train_ppo --total-timesteps 100000 --seed 7 --checkpoint-freq 25000
+```
+
+Periodic checkpoints, the final model, and a compact episode monitor log are
+written under `checkpoints/ppo/`, which is ignored by Git. Model files are only
+created when training is run; this Phase 2.1 change does not launch a full run.
 
 ## Verify the simulation
 
@@ -43,6 +86,9 @@ python scripts/random_agent.py --episodes 3 --render
 
 Rendering requires a graphical display. Generated outputs are not written to the repository.
 
-## Phase 1 status
+## Phase status
 
-Environment dependency checks, API verification, lightweight tests, and a random-action evaluation are implemented. Phase 1 is complete when these checks pass in the project environment. Training or optimizing a policy is outside this phase.
+Phase 1 environment checks, lightweight tests, and random-agent evaluation are
+implemented. Phase 2.1 provides PPO configuration and the training pipeline;
+model training/checkpoint evaluation and model loading/demonstration remain later
+Phase 2 work.
