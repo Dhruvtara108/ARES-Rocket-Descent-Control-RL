@@ -61,6 +61,29 @@ Periodic checkpoints, the final model, and a compact episode monitor log are
 written under `checkpoints/ppo/`, which is ignored by Git. Model files are only
 created when training is run; this Phase 2.1 change does not launch a full run.
 
+## Model demonstration (Phase 2.3)
+
+The demonstration script loads the locally trained PPO model on CPU and runs it
+in LunarLander-v3. Actions are deterministic by default. Add `--stochastic` to
+sample actions from the policy instead.
+
+Run one episode with the graphical environment:
+
+```bash
+python -m scripts.demo_ppo --render
+```
+
+Run three episodes without rendering:
+
+```bash
+python -m scripts.demo_ppo --episodes 3
+```
+
+The script defaults to `checkpoints/ppo/ppo_lunarlander_final.zip`. Select a
+different model, episode count, or seed with `--model-path`, `--episodes`, or
+`--seed`. The model is generated locally by training and is not committed to Git;
+run Phase 2.1 training first if the default model file is missing.
+
 ## Verify the simulation
 
 ```bash
@@ -89,6 +112,6 @@ Rendering requires a graphical display. Generated outputs are not written to the
 ## Phase status
 
 Phase 1 environment checks, lightweight tests, and random-agent evaluation are
-implemented. Phase 2.1 provides PPO configuration and the training pipeline;
-model training/checkpoint evaluation and model loading/demonstration remain later
-Phase 2 work.
+implemented. Phase 2.1 provides PPO configuration and the training pipeline,
+and Phase 2.3 provides model loading and demonstration. Training evaluation and
+optimization remain future work.
