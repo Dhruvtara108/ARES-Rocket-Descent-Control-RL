@@ -101,6 +101,14 @@ not indicate a successful landing. Final position, velocity, angle, and leg
 contact values are taken from LunarLander's final eight-value observation; its
 position and velocity values retain Gymnasium's observation scaling.
 
+The evaluation also records the reward from the final environment step and
+classifies the episode-ending event: `RESTED` means a terminated episode ended
+with a +100 final-step reward, `CRASHED_OR_OUT_OF_BOUNDS` means termination
+with a -100 final-step reward, `TIME_LIMIT` means the episode was truncated,
+and `OTHER` covers any other ending. `RESTED` describes only the environment's
+terminal reward event; it does not by itself confirm that the lander reached the
+designated landing pad or that the landing was successful.
+
 ## Verify the simulation
 
 ```bash

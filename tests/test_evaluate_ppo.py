@@ -2,7 +2,15 @@
 
 import unittest
 
-from scripts.evaluate_ppo import EpisodeResult, calculate_summary
+from scripts.evaluate_ppo import (
+    CRASHED_OR_OUT_OF_BOUNDS,
+    OTHER,
+    RESTED,
+    TIME_LIMIT,
+    EpisodeResult,
+    calculate_summary,
+    classify_termination_outcome,
+)
 
 
 def result(reward: float, terminated: bool = False, truncated: bool = False) -> EpisodeResult:
@@ -10,6 +18,8 @@ def result(reward: float, terminated: bool = False, truncated: bool = False) -> 
         episode=1,
         seed=100,
         total_reward=reward,
+        final_step_reward=reward,
+        termination_outcome=classify_termination_outcome(terminated, truncated, reward),
         steps=10,
         terminated=terminated,
         truncated=truncated,
@@ -44,6 +54,24 @@ class EvaluationStatisticsTests(unittest.TestCase):
         self.assertEqual(summary.negative_reward_episodes, 1)
         self.assertEqual(summary.terminated_episodes, 1)
         self.assertEqual(summary.truncated_episodes, 1)
+        self.assertEqual(summary.rested_episodes, 0)
+        self.assertEqual(summary.crashed_or_out_of_bounds_episodes, 0)
+        self.assertEqual(summary.time_limit_episodes, 1)
+        self.assertEqual(summary.other_outcome_episodes, 2)
+
+    def test_classifies_rested(self) -> None:
+        self.assertEqual(classify_termination_outcome(True, False, 100.0), RESTED)
+
+    def test_classifies_crash_or_out_of_bounds(self) -> None:
+        self.assertEqual(
+            classify_termination_outcome(True, False, -100.0), CRASHED_OR_OUT_OF_BOUNDS
+        )
+
+    def test_classifies_time_limit(self) -> None:
+        self.assertEqual(classify_termination_outcome(False, True, 0.0), TIME_LIMIT)
+
+    def test_classifies_unexpected_termination(self) -> None:
+        self.assertEqual(classify_termination_outcome(True, False, 17.5), OTHER)
 
     def test_empty_results_are_rejected(self) -> None:
         with self.assertRaises(ValueError):

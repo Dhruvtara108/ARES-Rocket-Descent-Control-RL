@@ -13,6 +13,10 @@ from stable_baselines3 import PPO
 
 DEFAULT_MODEL_PATH = Path("checkpoints/ppo/ppo_lunarlander_final.zip")
 DEFAULT_CSV_PATH = Path("checkpoints/ppo/evaluation/evaluation_results.csv")
+RESTED = "RESTED"
+CRASHED_OR_OUT_OF_BOUNDS = "CRASHED_OR_OUT_OF_BOUNDS"
+TIME_LIMIT = "TIME_LIMIT"
+OTHER = "OTHER"
 
 
 @dataclass(frozen=True)
@@ -20,6 +24,8 @@ class EpisodeResult:
     episode: int
     seed: int
     total_reward: float
+    final_step_reward: float
+    termination_outcome: str
     steps: int
     terminated: bool
     truncated: bool
@@ -46,6 +52,10 @@ class EvaluationSummary:
     negative_reward_episodes: int
     terminated_episodes: int
     truncated_episodes: int
+    rested_episodes: int
+    crashed_or_out_of_bounds_episodes: int
+    time_limit_episodes: int
+    other_outcome_episodes: int
 
 
 CSV_FIELDS = tuple(EpisodeResult.__dataclass_fields__)
@@ -69,7 +79,26 @@ def calculate_summary(results: Sequence[EpisodeResult]) -> EvaluationSummary:
         negative_reward_episodes=sum(reward < 0 for reward in rewards),
         terminated_episodes=sum(result.terminated for result in results),
         truncated_episodes=sum(result.truncated for result in results),
+        rested_episodes=sum(result.termination_outcome == RESTED for result in results),
+        crashed_or_out_of_bounds_episodes=sum(
+            result.termination_outcome == CRASHED_OR_OUT_OF_BOUNDS for result in results
+        ),
+        time_limit_episodes=sum(result.termination_outcome == TIME_LIMIT for result in results),
+        other_outcome_episodes=sum(result.termination_outcome == OTHER for result in results),
     )
+
+
+def classify_termination_outcome(
+    terminated: bool, truncated: bool, final_step_reward: float
+) -> str:
+    """Classify Gymnasium's episode-ending flags and final-step reward."""
+    if truncated:
+        return TIME_LIMIT
+    if terminated and final_step_reward == 100.0:
+        return RESTED
+    if terminated and final_step_reward == -100.0:
+        return CRASHED_OR_OUT_OF_BOUNDS
+    return OTHER
 
 
 def evaluate(
@@ -98,13 +127,15 @@ def evaluate(
             episode_seed = seed + episode - 1
             observation, _ = env.reset(seed=episode_seed)
             total_reward = 0.0
+            final_step_reward = 0.0
             steps = 0
             terminated = truncated = False
 
             while not (terminated or truncated):
                 action, _ = model.predict(observation, deterministic=not stochastic)
                 observation, reward, terminated, truncated, _ = env.step(action)
-                total_reward += float(reward)
+                final_step_reward = float(reward)
+                total_reward += final_step_reward
                 steps += 1
 
             # LunarLander observation: x, y, vx, vy, angle, angular velocity,
@@ -115,6 +146,10 @@ def evaluate(
                     episode=episode,
                     seed=episode_seed,
                     total_reward=total_reward,
+                    final_step_reward=final_step_reward,
+                    termination_outcome=classify_termination_outcome(
+                        bool(terminated), bool(truncated), final_step_reward
+                    ),
                     steps=steps,
                     terminated=bool(terminated),
                     truncated=bool(truncated),
@@ -158,6 +193,10 @@ def print_summary(summary: EvaluationSummary, episodes: int) -> None:
     print(f"Negative-reward episodes: {summary.negative_reward_episodes}")
     print(f"Terminated episodes: {summary.terminated_episodes}")
     print(f"Truncated episodes: {summary.truncated_episodes}")
+    print(f"RESTED outcomes: {summary.rested_episodes}")
+    print(f"CRASHED_OR_OUT_OF_BOUNDS outcomes: {summary.crashed_or_out_of_bounds_episodes}")
+    print(f"TIME_LIMIT outcomes: {summary.time_limit_episodes}")
+    print(f"OTHER outcomes: {summary.other_outcome_episodes}")
 
 
 def main() -> None:
