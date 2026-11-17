@@ -1,124 +1,64 @@
 # ARES Image Input
 
-ARES Image Input is the first ARES milestone: a small Python HTTP server that
-receives JPEG frames from an ESP32-CAM over a local Wi-Fi network. AI
-processing and image segmentation are intentionally out of scope for this
-milestone.
+Lightweight local image acquisition, analysis, ORB matching, and calibrated sparse two-view reconstruction. The local dataset in `data/images/` and uploads in `data/received/` pass through the same processing code. This milestone does not infer elevation, depth, or obstacle distance from appearance.
 
-## Setup
+## Setup and processing
 
-The server uses only the Python standard library. Python 3.10 or newer is
-recommended.
+From this directory (Python 3.10+):
 
-```bash
-cd ARES-Image-Input
-python3 --version
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m app.main
+python -m app.main --include-received
 ```
 
-No package installation is required.
+The app discovers JPG, JPEG, PNG, and BMP files. It validates decoding, resizes large frames, computes grayscale statistics, color histograms, Canny edges and ORB features, and writes a CSV, per-image diagnostics, contact sheet, pair match visualizations, and a feasibility report under `outputs/`.
 
-## Start the server
+## Receiver API
 
-From the project directory:
+Run on the laptop's local network interface:
 
-```bash
-python3 server.py
+```powershell
+python -c "from app.receiver.api import create_app; create_app().run(host='0.0.0.0', port=8000)"
 ```
 
-By default, the server listens on every network interface at port `8000` and
-saves images under `data/images/`. The startup output includes the address
-that an ESP32-CAM on the same network should use.
+- `GET /api/health`
+- `GET /api/images`
+- `POST /api/images/upload` with multipart form field `image`
 
-Host and port can be changed:
+Example with curl:
 
 ```bash
-python3 server.py --host 0.0.0.0 --port 8000
-python3 server.py --host 127.0.0.1 --port 9000 --image-directory /tmp/ares-images
+curl -F "image=@frame.jpg" http://127.0.0.1:8000/api/images/upload
+curl http://127.0.0.1:8000/api/images
 ```
 
-## API
+Images are content-validated, size-limited (10 MiB), given generated names, and stored in `data/received/`. A camera can post the JPEG using the same multipart endpoint over Wi-Fi.
 
-### `GET /health`
+## Reconstruction
 
-Returns JSON describing server availability:
+Pairwise matching uses ORB, a Hamming BFMatcher, Lowe ratio filtering, and fundamental matrix RANSAC. Pair diagnostics are reported even when no reconstruction is feasible. To estimate relative pose and triangulate, supply a JSON file with a camera matrix for the processed image dimensions:
 
 ```json
-{
-  "status": "ok",
-  "service": "ARES image input",
-  "latest_image_available": false
-}
+{"camera_matrix": [[800, 0, 800], [0, 800, 450], [0, 0, 1]]}
 ```
 
-### `POST /api/images`
-
-Sends a JPEG as the raw request body. The request must use
-`Content-Type: image/jpeg`. Uploads must be non-empty, have JPEG start and end
-signatures, and be no larger than 5 MB.
-
-Successful uploads return `201 Created` and JSON containing the generated
-filename and byte count. Images receive unique UTC timestamp-based filenames
-and are never overwritten.
-
-### `GET /api/images/latest`
-
-Returns the most recently accepted JPEG with `Content-Type: image/jpeg`.
-Returns `404` until the first successful upload.
-
-Validation errors return JSON with an `error` message. Common status codes are
-`400` for invalid data, `413` for an upload over 5 MB, `415` for a non-JPEG
-content type, and `404` for an unknown endpoint or unavailable latest image.
-
-## Test with curl
-
-Start the server in one terminal, then use another terminal:
-
-```bash
-curl http://127.0.0.1:8000/health
-curl -X POST http://127.0.0.1:8000/api/images \
-  -H "Content-Type: image/jpeg" \
-  --data-binary @frame.jpg
-curl http://127.0.0.1:8000/api/images/latest --output latest.jpg
+```powershell
+python -m app.main --calibration camera.json
 ```
 
-`frame.jpg` must be a real JPEG file. The server stores received images in
-`data/images/`, which is excluded from Git.
+The example values above are illustrative only; use actual camera calibration. Reconstruction is attempted only for a pair with sufficient geometric inliers, and its scale remains unknown absent scale information. Images must show overlapping views of the same static scene. The app cannot establish this from matches alone, so confirm the contact sheet and pair images first. It does not combine unrelated images or fabricate geometry.
 
-## ESP32-CAM request
+## Tests and outputs
 
-After connecting the ESP32-CAM to the same Wi-Fi network as the laptop, capture
-a JPEG frame and send its bytes to the laptop's local IP:
-
-```text
-POST http://<laptop-ip>:8000/api/images
-Content-Type: image/jpeg
-<JPEG bytes>
+```powershell
+python -m pytest -q
 ```
 
-An ESP32 implementation can use its HTTP client library to set the URL,
-`Content-Type` header, and request body to the camera frame buffer. The laptop
-firewall must allow inbound TCP traffic on port `8000`.
+Outputs: `outputs/dataset_summary.csv`, `outputs/processed/`, `outputs/matches/`, `outputs/point_cloud/`, and `outputs/reports/reconstruction_report.txt`. Generated content is reproducible and originals in `data/images/` are only read.
 
-## Find the laptop IP on Ubuntu
+## Architecture and future camera integration
 
-Use either command in a terminal:
-
-```bash
-hostname -I
-ip addr
-```
-
-Choose the IPv4 address on the active Wi-Fi interface (often an address such
-as `192.168.1.25`), then use it in the ESP32-CAM URL:
-
-```text
-http://192.168.1.25:8000/api/images
-```
-
-## Run tests
-
-Tests use temporary directories and do not write to the real image directory:
-
-```bash
-python3 -m unittest discover -s tests -v
-```
+`app/processing` owns shared decoding and image analysis; `app/reconstruction` owns pair matching and camera geometry; `app/receiver` accepts uploads. ESP32-CAM integration can send captured frames to the receiver without changing downstream image processing. Metric reconstruction requires calibration and known scale; a handful of unrelated road photographs is not a valid reconstruction dataset.
