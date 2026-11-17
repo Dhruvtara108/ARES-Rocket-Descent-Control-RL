@@ -32,6 +32,16 @@ def result(reward: float, terminated: bool = False, truncated: bool = False) -> 
         left_leg_contact=False,
         right_leg_contact=False,
         reached_200=reward >= 200,
+        final_x_offset_sim_units=0.0,
+        final_y_offset_sim_units=0.0,
+        final_horizontal_velocity_sim_units_per_second=0.0,
+        final_vertical_velocity_sim_units_per_second=0.0,
+        final_speed_sim_units_per_second=0.0,
+        final_distance_from_pad_sim_units=0.0,
+        final_angle_degrees=0.0,
+        final_angular_velocity_radians_per_second=0.0,
+        simulation_elapsed_time_seconds=0.2,
+        real_elapsed_evaluation_time_seconds=0.1,
     )
 
 

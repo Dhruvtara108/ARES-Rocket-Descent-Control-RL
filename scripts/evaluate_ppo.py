@@ -5,10 +5,13 @@ import csv
 import statistics
 from dataclasses import asdict, dataclass
 from pathlib import Path
+import time
 from typing import Sequence
 
 import gymnasium as gym
 from stable_baselines3 import PPO
+
+from scripts.telemetry import simulation_elapsed_time, telemetry_from_observation
 
 
 DEFAULT_MODEL_PATH = Path("checkpoints/ppo/ppo_lunarlander_final.zip")
@@ -38,6 +41,16 @@ class EpisodeResult:
     left_leg_contact: bool
     right_leg_contact: bool
     reached_200: bool
+    final_x_offset_sim_units: float
+    final_y_offset_sim_units: float
+    final_horizontal_velocity_sim_units_per_second: float
+    final_vertical_velocity_sim_units_per_second: float
+    final_speed_sim_units_per_second: float
+    final_distance_from_pad_sim_units: float
+    final_angle_degrees: float
+    final_angular_velocity_radians_per_second: float
+    simulation_elapsed_time_seconds: float
+    real_elapsed_evaluation_time_seconds: float
 
 
 @dataclass(frozen=True)
@@ -125,6 +138,7 @@ def evaluate(
     try:
         for episode in range(1, episodes + 1):
             episode_seed = seed + episode - 1
+            episode_start = time.perf_counter()
             observation, _ = env.reset(seed=episode_seed)
             total_reward = 0.0
             final_step_reward = 0.0
@@ -141,6 +155,8 @@ def evaluate(
             # LunarLander observation: x, y, vx, vy, angle, angular velocity,
             # left-leg contact, right-leg contact. Keep the final post-step state.
             x, y, vx, vy, angle, angular_velocity, left_contact, right_contact = map(float, observation)
+            flight = telemetry_from_observation(observation)
+            real_elapsed = time.perf_counter() - episode_start
             results.append(
                 EpisodeResult(
                     episode=episode,
@@ -162,6 +178,18 @@ def evaluate(
                     left_leg_contact=left_contact >= 0.5,
                     right_leg_contact=right_contact >= 0.5,
                     reached_200=total_reward >= 200.0,
+                    final_x_offset_sim_units=flight.x_offset,
+                    final_y_offset_sim_units=flight.y_offset,
+                    final_horizontal_velocity_sim_units_per_second=flight.horizontal_velocity,
+                    final_vertical_velocity_sim_units_per_second=flight.vertical_velocity,
+                    final_speed_sim_units_per_second=flight.speed,
+                    final_distance_from_pad_sim_units=flight.distance_from_pad,
+                    final_angle_degrees=flight.angle_degrees,
+                    final_angular_velocity_radians_per_second=(
+                        flight.angular_velocity_radians_per_second
+                    ),
+                    simulation_elapsed_time_seconds=simulation_elapsed_time(steps),
+                    real_elapsed_evaluation_time_seconds=real_elapsed,
                 )
             )
     finally:

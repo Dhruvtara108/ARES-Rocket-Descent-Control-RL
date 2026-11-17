@@ -84,6 +84,17 @@ different model, episode count, or seed with `--model-path`, `--episodes`, or
 `--seed`. The model is generated locally by training and is not committed to Git;
 run Phase 2.1 training first if the default model file is missing.
 
+With `--render`, a live telemetry panel overlays the simulation and updates on
+every step. It shows position relative to the pad reference, velocities,
+orientation, elapsed simulation and wall time, action and thruster counts,
+reward, and current landing status. Each episode ends with a flight report.
+Telemetry converts the normalized observation using LunarLander-v3's 600x400
+viewport, scale 30, and 50 FPS: position multipliers are 10 and 20/3 simulation
+units, velocity multipliers are 5 and 7.5 simulation units/second, and angular
+velocity is multiplied by 2.5 to obtain radians/second. These are simulation
+units, not real-world measurements. Simulation time is steps/50; wall time uses
+a monotonic performance counter.
+
 ## Detailed evaluation (Phase 3.1)
 
 Evaluate the trained policy over 100 seeded episodes and write per-episode
@@ -108,6 +119,9 @@ with a -100 final-step reward, `TIME_LIMIT` means the episode was truncated,
 and `OTHER` covers any other ending. `RESTED` describes only the environment's
 terminal reward event; it does not by itself confirm that the lander reached the
 designated landing pad or that the landing was successful.
+The CSV also includes converted final position and velocity, speed, distance
+from the pad, angle, angular velocity, simulation duration, and per-episode
+wall-clock evaluation duration.
 
 ## Verify the simulation
 
